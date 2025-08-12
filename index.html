@@ -8,6 +8,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS for Excel Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -75,8 +77,9 @@
              <div class="bg-white p-6 rounded-xl shadow-lg col-span-1 md:col-span-2">
                 <h2 class="text-lg font-semibold text-slate-700 mb-4">Monthly View</h2>
                 <div class="flex flex-wrap items-center gap-4">
-                    <input type="month" id="selectedMonth" class="p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 w-full md:w-auto">
-                    <button onclick="handleMonthChange()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 px-4 rounded-lg shadow transition-all w-full md:w-auto">Show</button>
+                    <input type="month" id="selectedMonth" class="p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto">
+                    <button onclick="handleMonthChange()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 px-4 rounded-lg shadow transition-all w-full sm:w-auto">Show</button>
+                    <button id="exportBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow transition-all w-full sm:w-auto">Export to Excel</button>
                 </div>
             </div>
              <div id="monthlySummary" class="bg-white p-6 rounded-xl shadow-lg col-span-1"></div>
@@ -121,6 +124,7 @@
             measurementId: "G-EVK4J3HKQX"
         };
 
+
         let app, auth, db;
         let employeesCollection;
         let unsubscribe = null;
@@ -140,6 +144,7 @@
                 employeesCollection = collection(db, `artifacts/${appId}/public/data/employees`);
                 setupAuthListener();
                 initializeMonthSelector();
+                document.getElementById('exportBtn').addEventListener('click', exportToExcel);
             } catch (error) {
                 console.error("Firebase initialization failed:", error);
                 showNotification("Application failed to load. Check console.", true);
@@ -185,6 +190,7 @@
             if (unsubscribe) unsubscribe();
             unsubscribe = onSnapshot(employeesCollection, (snapshot) => {
                 allEmployees = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                allEmployees.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
                 filterEmployees();
             }, (error) => {
                 console.error("Error fetching employees:", error);
@@ -207,7 +213,8 @@
                 <table class="w-full text-sm text-left text-slate-500">
                     <thead class="text-xs text-slate-700 uppercase bg-slate-100">
                         <tr>
-                            <th scope="col" class="px-6 py-3 rounded-l-lg">Name</th>
+                            <th scope="col" class="px-6 py-3 rounded-l-lg">S.No.</th>
+                            <th scope="col" class="px-6 py-3">Name</th>
                             <th scope="col" class="px-6 py-3">Position</th>
                             <th scope="col" class="px-6 py-3">Section</th>
                             ${dates.map(date => `<th scope="col" class="px-4 py-3 text-center">${formatDate(date)}</th>`).join('')}
@@ -216,8 +223,9 @@
                         </tr>
                     </thead>
                     <tbody>
-                        ${filteredEmployees.map(employee => `
-                            <tr class="bg-white border-b hover:bg-slate-50" data-employee-id="${employee.id}">
+                        ${filteredEmployees.map((employee, index) => `
+                            <tr class="bg-white border-b hover:bg-slate-50 cursor-pointer" onclick="showEmployeeInfoModal('${employee.id}')" data-employee-id="${employee.id}">
+                                <td class="px-6 py-4 font-medium text-slate-600">${index + 1}</td>
                                 <td class="px-6 py-4 font-medium text-slate-900 whitespace-nowrap">${employee.name}</td>
                                 <td class="px-6 py-4">${employee.position}</td>
                                 <td class="px-6 py-4">${employee.section || 'N/A'}</td>
@@ -225,8 +233,14 @@
                                 <td class="px-6 py-4 text-center font-bold text-red-600">${getMonthlyAbsences(employee)}</td>
                                 ${isAdmin ? `
                                     <td class="px-6 py-4 text-right">
-                                        <button onclick="showEditEmployeeModal('${employee.id}')" class="font-medium text-indigo-600 hover:text-indigo-800">Edit</button>
-                                        <button onclick="showDeleteConfirmModal('${employee.id}', '${employee.name}')" class="font-medium text-red-600 hover:text-red-800 ml-4">Delete</button>
+                                        <div class="flex justify-end items-center gap-2">
+                                            <button onclick="event.stopPropagation(); showEditEmployeeModal('${employee.id}')" class="p-2 rounded-full text-slate-500 hover:bg-indigo-100 hover:text-indigo-600 transition-colors">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg>
+                                            </button>
+                                            <button onclick="event.stopPropagation(); showDeleteConfirmModal('${employee.id}', '${employee.name}')" class="p-2 rounded-full text-slate-500 hover:bg-red-100 hover:text-red-600 transition-colors">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                                            </button>
+                                        </div>
                                     </td>` : ''}
                             </tr>
                         `).join('')}
@@ -250,7 +264,7 @@
             };
             return `
                 <select class="status-select w-full p-1 border-0 rounded text-xs transition-colors ${statusColors[status]}" 
-                        onchange="handleStatusChange('${employee.id}', '${date}', this.value)">
+                        onclick="event.stopPropagation()" onchange="handleStatusChange('${employee.id}', '${date}', this.value)">
                     <option value="pending" ${status === 'pending' ? 'selected' : ''}>-</option>
                     <option value="present" ${status === 'present' ? 'selected' : ''}>P</option>
                     <option value="absent" ${status === 'absent' ? 'selected' : ''}>A</option>
@@ -327,20 +341,21 @@
             };
 
             try {
-                // Check for duplicate name when adding a new employee
                 if (!employeeId) {
                     const q = query(employeesCollection, where("name", "==", employeeData.name));
                     const querySnapshot = await getDocs(q);
                     if (!querySnapshot.empty) {
                         showNotification("An employee with this name already exists.", true);
-                        return; // Stop execution
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Add Employee';
+                        return;
                     }
                 }
 
-                if (employeeId) { // Editing
+                if (employeeId) {
                     await updateDoc(doc(employeesCollection, employeeId), employeeData);
                     showNotification("Employee updated successfully.");
-                } else { // Adding
+                } else {
                     await addDoc(employeesCollection, { ...employeeData, attendance: {}, createdAt: serverTimestamp() });
                     showNotification("Employee added successfully.");
                 }
@@ -349,10 +364,32 @@
                 console.error("Error saving employee:", error);
                 showNotification(`Error: ${error.message}`, true);
             } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = employeeId ? 'Update Employee' : 'Add Employee';
+                 if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = employeeId ? 'Update Employee' : 'Add Employee';
+                }
             }
         }
+        
+        async function handleSaveNote(employeeId) {
+            const saveBtn = document.getElementById('saveNoteBtn');
+            const noteText = document.getElementById('employeeNoteTextarea').value;
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<div class="loading-spinner mx-auto"></div>';
+
+            try {
+                const employeeRef = doc(employeesCollection, employeeId);
+                await updateDoc(employeeRef, { notes: noteText });
+                showNotification("Note saved successfully.");
+            } catch (error) {
+                console.error("Error saving note:", error);
+                showNotification("Failed to save note.", true);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save Note';
+            }
+        }
+
 
         async function deleteEmployee(employeeId) {
             try {
@@ -364,6 +401,39 @@
                 console.error("Error deleting employee:", error);
                 showNotification(`Error: ${error.message}`, true);
             }
+        }
+        
+        function exportToExcel() {
+            const dates = getDaysInMonth(selectedMonth);
+            const headers = ["S.No.", "Name", "Position", "Section", ...dates.map(d => formatDate(d)), "Total Absent", "Notes"];
+            
+            const data = filteredEmployees.map((emp, index) => {
+                const row = [
+                    index + 1,
+                    emp.name,
+                    emp.position,
+                    emp.section || '',
+                ];
+                dates.forEach(date => {
+                    const status = (emp.attendance && emp.attendance[date]) || '-';
+                    row.push(status.charAt(0).toUpperCase());
+                });
+                row.push(getMonthlyAbsences(emp));
+                row.push(emp.notes || '');
+                return row;
+            });
+
+            const worksheet = XLSX.utils.aoa_to_sheet([headers, ...data]);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance Report");
+
+            const cols = headers.map((header, index) => ({
+                wch: Math.max(...data.map(row => row[index]?.toString().length || 0), header.length)
+            }));
+            worksheet["!cols"] = cols;
+
+            XLSX.writeFile(workbook, `Attendance-Report-${selectedMonth}.xlsx`);
+            showNotification("Exporting data to Excel...");
         }
 
         // --- AUTH ACTIONS ---
@@ -438,10 +508,51 @@
         }
 
         window.showAddEmployeeModal = () => showModal(createEmployeeFormHTML());
+        
         window.showEditEmployeeModal = (employeeId) => {
             const employee = allEmployees.find(e => e.id === employeeId);
             if(employee) showModal(createEmployeeFormHTML(employee));
         };
+        
+        window.showEmployeeInfoModal = (employeeId) => {
+            const employee = allEmployees.find(e => e.id === employeeId);
+            if (!employee) return;
+
+            const attendance = employee.attendance || {};
+            const presentDays = Object.keys(attendance).filter(date => date.startsWith(selectedMonth) && attendance[date] === 'present').length;
+            const absentDays = getMonthlyAbsences(employee);
+
+            const infoHTML = `
+                <div class="p-6">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">${employee.name}</h2>
+                            <p class="text-sm text-slate-500">${employee.position} - ${employee.section || 'N/A'}</p>
+                        </div>
+                        <button onclick="closeModal()" class="p-2 rounded-full hover:bg-slate-200">&times;</button>
+                    </div>
+                    <div class="mt-6 border-t pt-6">
+                        <h3 class="text-lg font-semibold text-slate-700 mb-4">Attendance for ${new Date(selectedMonth + '-02').toLocaleString('default', { month: 'long', year: 'numeric' })}</h3>
+                        <div class="grid grid-cols-2 gap-4 text-center">
+                            <div class="bg-green-100 p-4 rounded-lg">
+                                <p class="text-3xl font-bold text-green-700">${presentDays}</p>
+                                <p class="text-sm text-green-600">Present Days</p>
+                            </div>
+                             <div class="bg-red-100 p-4 rounded-lg">
+                                <p class="text-3xl font-bold text-red-700">${absentDays}</p>
+                                <p class="text-sm text-red-600">Absent Days</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-6 border-t pt-6">
+                        <h3 class="text-lg font-semibold text-slate-700 mb-2">Notes</h3>
+                        <textarea id="employeeNoteTextarea" rows="3" class="w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500" ${!isAdmin ? 'readonly' : ''}>${employee.notes || ''}</textarea>
+                        ${isAdmin ? `<div class="text-right mt-2"><button id="saveNoteBtn" onclick="handleSaveNote('${employee.id}')" class="py-2 px-4 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors">Save Note</button></div>` : ''}
+                    </div>
+                </div>
+            `;
+            showModal(infoHTML);
+        }
 
         window.showPasswordModal = () => {
             const formHTML = `
@@ -520,7 +631,7 @@
         }
         
         window.closeModal = closeModal;
+        window.handleSaveNote = handleSaveNote;
     </script>
 </body>
 </html>
-
