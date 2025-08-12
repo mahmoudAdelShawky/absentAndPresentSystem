@@ -378,13 +378,14 @@
             unsubscribe = employeesCollection
               .where("attendance", "!=", null)
               .onSnapshot(snapshot => {
-                const employees = snapshot.docs.map(doc => ({
-                  id: doc.id,
-                  ...doc.data(),
-                  attendance: filterAttendanceByMonth(doc.data().attendance, selectedMonth)
-                }));
-                renderTable(employees);
-              });
+                const employees = snapshot.docs.map(doc => {
+                    const fullAttendance = doc.data().attendance || {};
+                    return {
+                        id: doc.id,
+                        ...doc.data(),
+                        filteredAttendance: filterAttendanceByMonth(fullAttendance, selectedMonth)
+                    };
+                });
           }
 
         async function addEmployee(employee) {
@@ -537,7 +538,7 @@
                 updateData[`attendance.${date}`] = newStatus;
               }
           
-              await employeeRef.update(updateData);
+              await employeeRef.set(updateData, { merge: true });
           
             } catch (error) {
               // Rollback on error
@@ -551,7 +552,7 @@
           }
 
         function getStatusCell(employee, date) {
-            const status = employee.attendance?.[date] || 'pending';
+            const status = employee.filteredAttendance?.[date] || 'pending';
             return isAuthenticated ? `
                 <select class="status-select status-${status}" 
                         onchange="handleStatusChange('${employee.id}', '${date}', this.value)"
@@ -566,7 +567,7 @@
         }
 
         function getMonthlyAbsences(employee) {
-            return Object.entries(employee.attendance || {}).reduce((count, [date, status]) => 
+            return Object.entries(employee.filteredAttendance || {}).reduce((count, [date, status]) => 
                 date.startsWith(selectedMonth) && status === 'absent' ? count + 1 : count, 0);
         }
 
@@ -614,7 +615,8 @@
         try {
         if (employeeId) {
             // Update existing employee
-            await db.collection("employees").doc(employeeId).update(employeeData);
+            await db.collection("employees").doc(employeeId).set(employeeData, { merge: true });
+
             console.log('Employee updated successfully');
         } else {
             // Add new employee
@@ -693,4 +695,5 @@
         });
     </script>
 </body>
+
 </html>
