@@ -110,10 +110,15 @@
 
         // --- GLOBAL STATE & CONFIG ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'employee-attendance-dev';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_AUTH_DOMAIN",
-            projectId: "YOUR_PROJECT_ID"
+        const firebaseConfig = {
+            apiKey: "AIzaSyDYuU7BnNoWknT-kzdDmynrFAvq_sKv1ww",
+            authDomain: "form-with-fire.firebaseapp.com",
+            databaseURL: "https://form-with-fire-default-rtdb.firebaseio.com",
+            projectId: "form-with-fire",
+            storageBucket: "form-with-fire.firebasestorage.app",
+            messagingSenderId: "538712047570",
+            appId: "1:538712047570:web:489a07861e50f4e7f9d20b",
+            measurementId: "G-EVK4J3HKQX"
         };
 
         let app, auth, db;
@@ -518,3 +523,4 @@
     </script>
 </body>
 </html>
+
