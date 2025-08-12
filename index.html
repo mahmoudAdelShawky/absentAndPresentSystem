@@ -4,49 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Employee Attendance System</title>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root {
-            --primary: #2c3e50;
-            --secondary: #3498db;
-            --present: #2ecc71;
-            --absent: #e74c3c;
-            --light: #ecf0f1;
+        /* Using TailwindCSS for styling, but keeping some custom CSS for animations and specific overrides */
+        body {
+            font-family: 'Inter', sans-serif;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-          /* Base styles */
-        .status-select {
-            transition: all 0.3s ease;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        /* Color schemes */
-        .status-pending { background: #f1f1f1; color: #666; }
-        .status-present { background: #2ecc71; color: white; }
-        .status-absent { background: #e74c3c; color: white; }
-
-        /* Hover states */
-        .status-select:hover {
-            filter: brightness(110%);
-        }
-
-        /* Delete animation */
         @keyframes slideOut {
             from { transform: translateX(0); opacity: 1; }
             to { transform: translateX(-100%); opacity: 0; }
         }
         
         .deleting {
-            animation: slideOut 0.3s ease forwards;
+            animation: slideOut 0.5s ease-in-out forwards;
         }
         
         .loading-spinner {
@@ -62,246 +36,77 @@
             to { transform: rotate(360deg); }
         }
 
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            background: var(--light);
-            padding: 20px;
+        /* Custom styles for status dropdowns */
+        .status-select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-repeat: no-repeat;
+            background-position: right 0.5rem center;
+            background-size: 1em;
+            padding-right: 2rem;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
         }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
+        .status-select.status-present {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='white' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
         }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-
-        
-
-        .btn {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            background: var(--secondary);
-            color: white;
-            transition: opacity 0.3s;
-        }
-
-        .btn:hover {
-            opacity: 0.9;
-        }
-
-        .table-container {
-            overflow-x: auto;
-            width: 100%;
-            margin-bottom: 20px;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .status-cell{
-            border: none;
-        }
-
-        table {
-            width: max-content;
-            min-width: 100%;
-            border-collapse: collapse;
-            background: white;
-        }
-
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-            min-width: 120px;
-        }
-
-        th {
-            background: var(--primary);
-            color: white;
-            left: 0;
-            z-index: 1;
-        }
-
-        tr:hover {
-            background: #f5f5f5;
-        }
-
-        .status-cell {
-            text-align: center;
-        }
-
-        .present-bg {
-            background: var(--present);
-        }
-
-        .absent-bg {
-            background: var(--absent);
-        }
-
-        .search-container {
-            margin-bottom: 20px;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 5px;
-            margin-top: 10px;
-        }
-
-        #searchInput {
-            padding: 8px;
-            width: 100%;
-            max-width: 300px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-        }
-
-        .modal-content {
-            background: white;
-            padding: 20px;
-            width: 90%;
-            max-width: 400px;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            border-radius: 8px;
-        }
-
-        .modal input{
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin: 5px 0;
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        input[type="text"], input[type="password"], input[type="month"] {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-
-        .summary-card {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-
-        .month-selector {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-            margin-bottom: 15px;
-        }
-
-        @media (max-width: 768px) {
-            th, td {
-                padding: 8px;
-                font-size: 14px;
-            }
-            
-            .btn {
-                padding: 6px 12px;
-                font-size: 14px;
-            }
+        .status-select.status-absent {
+             background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='white' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>Employee Attendance System</h1>
-            <div>
-                <button class="btn" id="authButton" onclick="showPasswordModal()">Admin Login</button>
-                <button class="btn" onclick="showAddEmployeeModal()">Add Employee</button>
-            </div>
-        </div>
+<body class="bg-gray-100">
 
-        <div class="summary-card">
-            <div class="month-selector">
-                <input type="month" id="selectedMonth">
-                <button class="btn" onclick="renderTable()">Show</button>
-            </div>
-            <div id="monthlySummary"></div>
-        </div>
-
-        <div class="search-container">
-            <input type="text" id="searchInput" placeholder="Search by name or position..." onkeyup="filterEmployees()">
-        </div>
-
-        <div class="table-container">
-            <div id="attendanceTable"></div>
-        </div>
+    <!-- Notification Bar -->
+    <div id="notification" class="hidden fixed top-0 left-0 right-0 p-4 text-white text-center z-50 transition-transform duration-300 transform -translate-y-full">
+        <p id="notificationMessage"></p>
     </div>
 
-    <!-- Add Employee Modal -->
-    <div id="addEmployeeModal" class="modal">
-        <div class="modal-content">
-            <h2 id="modalTitle">Add New Employee</h2>
-            <form id="employeeForm" onsubmit="handleEmployeeForm(event)">
-                <input type="hidden" id="employeeId">
-                <div class="form-group">
-                    <label>Full Name</label>
-                    <input type="text" id="empName" required>
-                </div>
-                <div class="form-group">
-                    <label>Position</label>
-                    <input type="text" id="empPosition" required>
-                </div>
-                <div style="margin-top: 15px; display: flex; gap: 10px;">
-                    <button type="submit" class="btn" id="submitBtn">Add Employee</button>
-                    <button type="button" class="btn" onclick="closeModals()">Cancel</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Password Modal -->
-    <div id="passwordModal" class="modal">
-        <div class="modal-content">
-            <h2>Admin Access</h2>
-            <div class="form-group">
-                <input type="email" id="adminEmail" placeholder="Admin Email" required>
-                <input type="password" id="adminPassword" placeholder="Password" required>
+    <div class="container mx-auto p-4 md:p-6">
+        <header class="flex flex-wrap justify-between items-center mb-6 gap-4">
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Employee Attendance System</h1>
+            <div id="auth-controls" class="flex items-center gap-2">
+                 <span id="userIdDisplay" class="text-xs text-gray-500 mr-2"></span>
+                <button id="authButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow transition-all">Admin Login</button>
+                <button id="addEmployeeBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow transition-all hidden">Add Employee</button>
             </div>
-            <div style="margin-top: 15px; display: flex; gap: 10px;">
-                <button class="btn" onclick="verifyPassword()">Submit</button>
-                <button class="btn" onclick="closeModals()">Cancel</button>
+        </header>
+
+        <div class="bg-white p-4 rounded-lg shadow-md mb-6">
+            <div class="flex flex-wrap items-center gap-4 mb-4">
+                <input type="month" id="selectedMonth" class="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                <button onclick="handleMonthChange()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow transition-all">Show</button>
+            </div>
+            <div id="monthlySummary" class="text-gray-700"></div>
+        </div>
+
+        <div class="mb-6">
+            <input type="text" id="searchInput" placeholder="Search by name or position..." onkeyup="filterEmployees()" class="w-full max-w-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div class="overflow-x-auto bg-white rounded-lg shadow-md">
+            <div id="attendanceTableContainer">
+                <p class="p-8 text-center text-gray-500">Loading attendance data...</p>
             </div>
         </div>
     </div>
 
-    <script>
-        // Firebase Configuration
-          // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+    <!-- Generic Modal Structure -->
+    <div id="modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 p-4">
+        <div id="modalContent" class="bg-white rounded-lg shadow-2xl w-full max-w-md p-6">
+            <!-- Modal content will be injected here -->
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Import functions from the Firebase SDK
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, onSnapshot, addDoc, setDoc, updateDoc, deleteDoc, FieldValue, serverTimestamp, getDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- GLOBAL STATE & CONFIG ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'employee-attendance-dev';
         const firebaseConfig = {
             apiKey: "AIzaSyDYuU7BnNoWknT-kzdDmynrFAvq_sKv1ww",
             authDomain: "form-with-fire.firebaseapp.com",
@@ -312,23 +117,436 @@
             appId: "1:538712047570:web:489a07861e50f4e7f9d20b",
             measurementId: "G-EVK4J3HKQX"
         };
-        // Initialize Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const auth = firebase.auth();
-        const employeesCollection = db.collection("employees");
-        let unsubscribe = null;
 
-        let isAuthenticated = false;
+        let app, auth, db;
+        let employeesCollection;
+        let unsubscribe = null; // To store the realtime listener unsub function
+        
+        let allEmployees = []; // Holds all employees from Firestore
+        let filteredEmployees = []; // Holds employees after client-side search
+        let isAdmin = false;
         let selectedMonth = '';
-        let isEditing = false;
+        let currentUserId = null;
 
-        // Date functions
-        function getCurrentMonth() {
-            const now = new Date();
-            return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                
+                // Set the collection path using the app ID
+                employeesCollection = collection(db, `artifacts/${appId}/public/data/employees`);
+
+                setupAuthListener();
+                initializeMonthSelector();
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+                showNotification("Application failed to load. Check console.", true);
+            }
+        });
+
+        function setupAuthListener() {
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    currentUserId = user.uid;
+                    document.getElementById('userIdDisplay').textContent = `User ID: ${user.uid}`;
+                    
+                    // Check if the user is an admin by checking their email
+                    isAdmin = user.email ? true : false;
+                    updateUIForAuth();
+                    setupRealtimeListener();
+                } else {
+                    // No user signed in, attempt anonymous sign-in
+                    currentUserId = null;
+                    isAdmin = false;
+                    try {
+                        const initialToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                        if (initialToken) {
+                            await signInWithCustomToken(auth, initialToken);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (error) {
+                        console.error("Anonymous/Custom sign-in failed:", error);
+                        if (error.code === 'auth/operation-not-allowed') {
+                            showNotification("Anonymous sign-in is not enabled in your Firebase project.", true);
+                        } else {
+                            showNotification("Authentication failed. Some features may be disabled.", true);
+                        }
+                        updateUIForAuth();
+                        setupRealtimeListener(); // Still try to load public data
+                    }
+                }
+            });
         }
 
+        function initializeMonthSelector() {
+            const now = new Date();
+            selectedMonth = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+            document.getElementById('selectedMonth').value = selectedMonth;
+        }
+
+        // --- REALTIME DATA HANDLING ---
+        function setupRealtimeListener() {
+            if (unsubscribe) {
+                unsubscribe(); // Detach old listener
+            }
+            unsubscribe = onSnapshot(employeesCollection, (snapshot) => {
+                allEmployees = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                filterEmployees(); // This will also trigger renderTable
+            }, (error) => {
+                console.error("Error fetching employees:", error);
+                showNotification("Could not fetch employee data.", true);
+            });
+        }
+
+        // --- RENDERING ---
+        function renderTable() {
+            const dates = getDaysInMonth(selectedMonth);
+            const tableContainer = document.getElementById('attendanceTableContainer');
+
+            if (filteredEmployees.length === 0) {
+                tableContainer.innerHTML = `<p class="p-8 text-center text-gray-500">No employees found. Add one to get started!</p>`;
+                updateMonthlySummary();
+                return;
+            }
+
+            const tableHTML = `
+                <table class="w-full text-sm text-left text-gray-500">
+                    <thead class="text-xs text-white uppercase bg-gray-700">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 sticky left-0 bg-gray-700">Name</th>
+                            <th scope="col" class="px-6 py-3">Position</th>
+                            ${dates.map(date => `<th scope="col" class="px-4 py-3 text-center">${formatDate(date)}</th>`).join('')}
+                            <th scope="col" class="px-6 py-3 text-center">Total Absent</th>
+                            ${isAdmin ? '<th scope="col" class="px-6 py-3 sticky right-0 bg-gray-700">Actions</th>' : ''}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filteredEmployees.map(employee => `
+                            <tr class="bg-white border-b hover:bg-gray-50" data-employee-id="${employee.id}">
+                                <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap sticky left-0 bg-white hover:bg-gray-50">${employee.name}</td>
+                                <td class="px-6 py-4">${employee.position}</td>
+                                ${dates.map(date => `<td class="px-4 py-4 text-center">${getStatusCell(employee, date)}</td>`).join('')}
+                                <td class="px-6 py-4 text-center font-bold">${getMonthlyAbsences(employee)}</td>
+                                ${isAdmin ? `
+                                    <td class="px-6 py-4 flex items-center gap-2 sticky right-0 bg-white hover:bg-gray-50">
+                                        <button onclick="showEditEmployeeModal('${employee.id}')" class="font-medium text-blue-600 hover:underline">Edit</button>
+                                        <button onclick="showDeleteConfirmModal('${employee.id}', '${employee.name}')" class="font-medium text-red-600 hover:underline">Delete</button>
+                                    </td>` : ''}
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            tableContainer.innerHTML = tableHTML;
+            updateMonthlySummary();
+        }
+
+        function getStatusCell(employee, date) {
+            const attendance = employee.attendance || {};
+            const status = attendance[date] || 'pending';
+            
+            if (!isAdmin) {
+                const statusClasses = {
+                    present: 'bg-green-100 text-green-800',
+                    absent: 'bg-red-100 text-red-800',
+                    pending: 'bg-gray-100 text-gray-800'
+                };
+                return `<span class="px-2 py-1 text-xs font-medium rounded-full ${statusClasses[status]}">${status.charAt(0).toUpperCase()}</span>`;
+            }
+
+            const statusColors = {
+                present: 'bg-green-500 text-white',
+                absent: 'bg-red-500 text-white',
+                pending: 'bg-gray-200 text-gray-800'
+            };
+            return `
+                <select class="status-select w-full p-1 border-0 rounded text-xs transition-colors ${statusColors[status]}" 
+                        onchange="handleStatusChange('${employee.id}', '${date}', this.value)"
+                        data-employee-id="${employee.id}" data-date="${date}">
+                    <option value="pending" ${status === 'pending' ? 'selected' : ''}>-</option>
+                    <option value="present" ${status === 'present' ? 'selected' : ''}>Present</option>
+                    <option value="absent" ${status === 'absent' ? 'selected' : ''}>Absent</option>
+                </select>
+            `;
+        }
+
+        function updateMonthlySummary() {
+            const totalAbsent = filteredEmployees.reduce((sum, emp) => sum + getMonthlyAbsences(emp), 0);
+            document.getElementById('monthlySummary').innerHTML = `
+                <div class="flex gap-6 text-center">
+                    <div>
+                        <p class="text-2xl font-bold text-gray-800">${filteredEmployees.length}</p>
+                        <p class="text-sm text-gray-500">Total Employees</p>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-red-600">${totalAbsent}</p>
+                        <p class="text-sm text-gray-500">Monthly Absences</p>
+                    </div>
+                </div>`;
+        }
+        
+        function updateUIForAuth() {
+            const authButton = document.getElementById('authButton');
+            const addEmployeeBtn = document.getElementById('addEmployeeBtn');
+            authButton.textContent = isAdmin ? 'Logout' : 'Admin Login';
+            addEmployeeBtn.classList.toggle('hidden', !isAdmin);
+            if (isAdmin) {
+                authButton.onclick = handleLogout;
+                addEmployeeBtn.onclick = showAddEmployeeModal;
+            } else {
+                authButton.onclick = showPasswordModal;
+            }
+            renderTable(); // Re-render table to show/hide admin controls
+        }
+
+        // --- EVENT HANDLERS & ACTIONS ---
+        window.handleMonthChange = function() {
+            selectedMonth = document.getElementById('selectedMonth').value;
+            renderTable();
+        }
+
+        window.filterEmployees = function() {
+            const term = document.getElementById('searchInput').value.toLowerCase();
+            if (!term) {
+                filteredEmployees = [...allEmployees];
+            } else {
+                filteredEmployees = allEmployees.filter(emp => 
+                    emp.name.toLowerCase().includes(term) || 
+                    emp.position.toLowerCase().includes(term)
+                );
+            }
+            renderTable();
+        }
+
+        window.handleStatusChange = async function(employeeId, date, newStatus) {
+            const selectElement = document.querySelector(`select[data-employee-id="${employeeId}"][data-date="${date}"]`);
+            selectElement.disabled = true;
+            try {
+                const employeeRef = doc(db, `artifacts/${appId}/public/data/employees`, employeeId);
+                const updateData = {};
+                // Use dot notation to update a field in a map
+                updateData[`attendance.${date}`] = newStatus;
+                await updateDoc(employeeRef, updateData);
+                // The onSnapshot listener will automatically re-render the table
+            } catch (error) {
+                console.error("Error updating attendance:", error);
+                showNotification("Failed to update status.", true);
+                // No need to rollback UI, onSnapshot will eventually correct it
+            } finally {
+                selectElement.disabled = false;
+            }
+        }
+
+        window.handleEmployeeForm = async function(event) {
+            event.preventDefault();
+            const submitBtn = event.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<div class="loading-spinner mx-auto"></div>';
+
+            const employeeId = document.getElementById('employeeId').value;
+            const employeeData = {
+                name: document.getElementById('empName').value,
+                position: document.getElementById('empPosition').value
+            };
+
+            try {
+                if (employeeId) { // Editing existing employee
+                    const employeeRef = doc(employeesCollection, employeeId);
+                    await updateDoc(employeeRef, employeeData);
+                    showNotification("Employee updated successfully.");
+                } else { // Adding new employee
+                    await addDoc(employeesCollection, {
+                        ...employeeData,
+                        attendance: {},
+                        createdAt: serverTimestamp()
+                    });
+                    showNotification("Employee added successfully.");
+                }
+                closeModal();
+            } catch (error) {
+                console.error("Error saving employee:", error);
+                showNotification(`Error: ${error.message}`, true);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = employeeId ? 'Update Employee' : 'Add Employee';
+            }
+        }
+
+        async function deleteEmployee(employeeId) {
+            try {
+                const row = document.querySelector(`tr[data-employee-id="${employeeId}"]`);
+                if (row) row.classList.add('deleting');
+                
+                await deleteDoc(doc(employeesCollection, employeeId));
+                showNotification("Employee deleted.");
+                // No need to manually remove from UI, onSnapshot will handle it.
+            } catch (error) {
+                console.error("Error deleting employee:", error);
+                showNotification(`Error: ${error.message}`, true);
+                const row = document.querySelector(`tr[data-employee-id="${employeeId}"]`);
+                if (row) row.classList.remove('deleting');
+            }
+        }
+
+        // --- AUTH ACTIONS ---
+        window.handleAdminLogin = async function(event) {
+            event.preventDefault();
+            const submitBtn = event.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<div class="loading-spinner mx-auto"></div>';
+
+            const email = document.getElementById('adminEmail').value;
+            const password = document.getElementById('adminPassword').value;
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                closeModal();
+                showNotification("Admin login successful!");
+            } catch (error) {
+                console.error("Admin login error:", error);
+                if (error.code === 'auth/operation-not-allowed') {
+                    showNotification("Admin login failed. Please enable Email/Password sign-in provider in your Firebase console.", true);
+                } else {
+                    showNotification(error.message, true);
+                }
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit';
+            }
+        }
+
+        async function handleLogout() {
+            try {
+                await signOut(auth);
+                isAdmin = false;
+                updateUIForAuth();
+                showNotification("You have been logged out.");
+            } catch (error) {
+                console.error("Logout error:", error);
+                showNotification(error.message, true);
+            }
+        }
+
+        // --- MODAL & NOTIFICATION UI ---
+        function showModal(contentHTML) {
+            document.getElementById('modalContent').innerHTML = contentHTML;
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+            document.getElementById('modalContent').innerHTML = '';
+        }
+
+        window.showAddEmployeeModal = function() {
+            const formHTML = `
+                <h2 class="text-xl font-bold mb-4">Add New Employee</h2>
+                <form onsubmit="handleEmployeeForm(event)">
+                    <input type="hidden" id="employeeId">
+                    <div class="mb-4">
+                        <label for="empName" class="block text-sm font-medium text-gray-700">Full Name</label>
+                        <input type="text" id="empName" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div class="mb-6">
+                        <label for="empPosition" class="block text-sm font-medium text-gray-700">Position</label>
+                        <input type="text" id="empPosition" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div class="flex justify-end gap-4">
+                        <button type="button" onclick="closeModal()" class="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">Cancel</button>
+                        <button type="submit" class="py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Add Employee</button>
+                    </div>
+                </form>
+            `;
+            showModal(formHTML);
+        }
+
+        window.showEditEmployeeModal = async function(employeeId) {
+            const employee = allEmployees.find(e => e.id === employeeId);
+            if (!employee) {
+                showNotification("Could not find employee to edit.", true);
+                return;
+            }
+            const formHTML = `
+                <h2 class="text-xl font-bold mb-4">Edit Employee</h2>
+                <form onsubmit="handleEmployeeForm(event)">
+                    <input type="hidden" id="employeeId" value="${employeeId}">
+                    <div class="mb-4">
+                        <label for="empName" class="block text-sm font-medium text-gray-700">Full Name</label>
+                        <input type="text" id="empName" required value="${employee.name}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div class="mb-6">
+                        <label for="empPosition" class="block text-sm font-medium text-gray-700">Position</label>
+                        <input type="text" id="empPosition" required value="${employee.position}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div class="flex justify-end gap-4">
+                        <button type="button" onclick="closeModal()" class="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">Cancel</button>
+                        <button type="submit" class="py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Update Employee</button>
+                    </div>
+                </form>
+            `;
+            showModal(formHTML);
+        }
+
+        window.showPasswordModal = function() {
+            const formHTML = `
+                <h2 class="text-xl font-bold mb-4">Admin Access</h2>
+                <form onsubmit="handleAdminLogin(event)">
+                    <div class="mb-4">
+                        <label for="adminEmail" class="block text-sm font-medium text-gray-700">Admin Email</label>
+                        <input type="email" id="adminEmail" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div class="mb-6">
+                        <label for="adminPassword" class="block text-sm font-medium text-gray-700">Password</label>
+                        <input type="password" id="adminPassword" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div class="flex justify-end gap-4">
+                        <button type="button" onclick="closeModal()" class="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">Cancel</button>
+                        <button type="submit" class="py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Submit</button>
+                    </div>
+                </form>
+            `;
+            showModal(formHTML);
+        }
+        
+        window.showDeleteConfirmModal = function(employeeId, employeeName) {
+            const confirmHTML = `
+                <h2 class="text-xl font-bold mb-4">Confirm Deletion</h2>
+                <p class="text-gray-700 mb-6">Are you sure you want to delete <strong>${employeeName}</strong>? This action cannot be undone.</p>
+                <div class="flex justify-end gap-4">
+                    <button type="button" onclick="closeModal()" class="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">Cancel</button>
+                    <button type="button" id="confirmDeleteBtn" class="py-2 px-4 bg-red-600 text-white rounded-lg hover:bg-red-700">Delete</button>
+                </div>
+            `;
+            showModal(confirmHTML);
+            document.getElementById('confirmDeleteBtn').onclick = () => {
+                closeModal();
+                deleteEmployee(employeeId);
+            };
+        }
+
+        function showNotification(message, isError = false) {
+            const notification = document.getElementById('notification');
+            const messageP = document.getElementById('notificationMessage');
+            
+            messageP.textContent = message;
+            notification.className = `fixed top-0 left-0 right-0 p-4 text-white text-center z-50 transition-transform duration-500 ease-in-out transform ${isError ? 'bg-red-600' : 'bg-green-600'}`;
+            
+            // Show notification
+            notification.classList.remove('hidden');
+            notification.style.transform = 'translateY(0)';
+
+            // Hide after 3 seconds
+            setTimeout(() => {
+                notification.style.transform = 'translateY(-100%)';
+            }, 3000);
+        }
+
+        // --- UTILITY FUNCTIONS ---
         function getDaysInMonth(month) {
             const [year, monthIndex] = month.split('-').map(Number);
             const date = new Date(year, monthIndex - 1, 1);
@@ -340,360 +558,21 @@
             return days;
         }
 
-        // Auth state listener
-        auth.onAuthStateChanged(user => {
-            isAuthenticated = !!user;
-            document.getElementById('authButton').textContent = isAuthenticated ? 'Logout' : 'Admin Login';
-            if (isAuthenticated) setupRealtimeUpdates();
-            else if (unsubscribe) unsubscribe();
-            renderTable();
-        });
-
-        // Initialize app
-        document.addEventListener('DOMContentLoaded', () => {
-            selectedMonth = getCurrentMonth();
-            document.getElementById('selectedMonth').value = selectedMonth;
-            document.getElementById('selectedMonth').addEventListener('change', async function(e) {
-                selectedMonth = e.target.value;
-                await setupRealtimeUpdates(); // Refresh data with new month filter
-              });
-        });
-
-        function filterAttendanceByMonth(attendance, month) {
-            return Object.entries(attendance).reduce((acc, [date, status]) => {
-              if (date.startsWith(month)) {
-                acc[date] = status;
-              }
-              return acc;
-            }, {});
-          }
-
-        // Firebase operations
-        async function setupRealtimeUpdates() {
-            if (unsubscribe) unsubscribe();
-            
-            const startDate = new Date(selectedMonth);
-            const endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
-          
-            unsubscribe = employeesCollection
-              .where("attendance", "!=", null)
-              .onSnapshot(snapshot => {
-                const employees = snapshot.docs.map(doc => {
-                    const fullAttendance = doc.data().attendance || {};
-                    return {
-                        id: doc.id,
-                        ...doc.data(),
-                        filteredAttendance: filterAttendanceByMonth(fullAttendance, selectedMonth)
-                    };
-                });
-          }
-
-        async function addEmployee(employee) {
-            try {
-                await employeesCollection.add(employee);
-            } catch (error) {
-                alert('Error adding employee: ' + error.message);
-            }
-        }
-
-        async function updateEmployee(id, updates) {
-            try {
-                await employeesCollection.doc(id).update(updates);
-            } catch (error) {
-                alert('Error updating employee: ' + error.message);
-            }
-        }
-
-        async function deleteEmployee(employeeId) {
-            try {
-              if (!confirm('Are you sure you want to delete this employee?')) return;
-          
-              // Get the delete button using more reliable selector
-              const deleteButton = document.querySelector(`button[data-employee-id="${employeeId}"].delete-btn`);
-              
-              if (deleteButton) {
-                deleteButton.innerHTML = '<div class="loading-spinner"></div>';
-                deleteButton.disabled = true;
-              }
-          
-              await db.collection("employees").doc(employeeId).delete();
-          
-              // Find the row using data attribute
-              const employeeRow = document.querySelector(`tr[data-employee-id="${employeeId}"]`);
-              if (employeeRow) {
-                employeeRow.classList.add('deleting');
-                setTimeout(() => employeeRow.remove(), 300);
-              }
-          
-            } catch (error) {
-              console.error('Delete error:', error);
-              alert(`Delete failed: ${error.message}`);
-              
-              // Re-enable button if still exists
-              const deleteButton = document.querySelector(`button[data-employee-id="${employeeId}"].delete-btn`);
-              if (deleteButton) {
-                deleteButton.innerHTML = 'Delete';
-                deleteButton.disabled = false;
-              }
-            }
-          }
-
-        async function updateAttendance(employeeId, date, status) {
-            try {
-                const updates = {};
-                if (status === 'pending') {
-                    updates[`attendance.${date}`] = firebase.firestore.FieldValue.delete();
-                } else {
-                    updates[`attendance.${date}`] = status;
-                }
-                await employeesCollection.doc(employeeId).update(updates);
-            } catch (error) {
-                alert('Error updating attendance: ' + error.message);
-            }
-        }
-
-        // UI functions
-        async function renderTable() {
-            try {
-              const employeesSnapshot = await employeesCollection.get();
-              const employees = employeesSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-              }));
-          
-              const dates = getDaysInMonth(selectedMonth);
-              const tableHTML = `
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Position</th>
-                      ${dates.map(date => `<th>${formatDate(date)}</th>`).join('')}
-                      <th>Total Absent</th>
-                      ${isAuthenticated ? '<th>Actions</th>' : ''}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${employees.map(employee => `
-                      <tr>
-                        <td>${employee.name}</td>
-                        <td>${employee.position}</td>
-                        ${dates.map(date => `
-                          <td class="status-cell">
-                            ${getStatusCell(employee, date)}
-                          </td>
-                        `).join('')}
-                        <td>${getMonthlyAbsences(employee)}</td>
-                        ${isAuthenticated ? `
-                          <td>
-                            <button class="btn" onclick="editEmployee('${employee.id}')">Edit</button>
-                                <button class="btn delete-btn" 
-                                    data-employee-id="${employee.id}"
-                                    onclick="deleteEmployee('${employee.id}')"
-                                    style="background: var(--absent)">
-                            Delete
-                            </button>
-                          </td>
-                        ` : ''}
-                      </tr>
-                    `).join('')}
-                  </tbody>
-                </table>
-              `;
-          
-              document.getElementById('attendanceTable').innerHTML = tableHTML;
-              updateMonthlySummary(employees);
-            } catch (error) {
-              console.error("Render error:", error);
-              alert("Failed to load data");
-            }
-          }
         function formatDate(dateString) {
-            const date = new Date(dateString);
+            const date = new Date(dateString + 'T00:00:00'); // Ensure correct date parsing
             return date.toLocaleDateString('en-US', { day: 'numeric', weekday: 'short' });
         }
 
-        async function handleStatusChange(employeeId, date, newStatus) {
-            try {
-              const selectElement = document.querySelector(
-                `[data-employee-id="${employeeId}"][data-date="${date}"]`
-              );
-          
-              // Store original values for rollback
-              const originalStatus = selectElement.classList.contains('status-present') ? 'present' :
-                                    selectElement.classList.contains('status-absent') ? 'absent' : 'pending';
-              
-              // Immediate visual feedback
-              selectElement.classList.remove(`status-${originalStatus}`);
-              selectElement.classList.add(`status-${newStatus}`);
-              selectElement.disabled = true;
-          
-              // Update Firebase
-              const employeeRef = db.collection('employees').doc(employeeId);
-              const updateData = {};
-              
-              if (newStatus === 'pending') {
-                updateData[`attendance.${date}`] = firebase.firestore.FieldValue.delete();
-              } else {
-                updateData[`attendance.${date}`] = newStatus;
-              }
-          
-              await employeeRef.set(updateData, { merge: true });
-          
-            } catch (error) {
-              // Rollback on error
-              selectElement.classList.remove(`status-${newStatus}`);
-              selectElement.classList.add(`status-${originalStatus}`);
-              selectElement.value = originalStatus;
-              alert(`Error: ${error.message}`);
-            } finally {
-              selectElement.disabled = false;
-            }
-          }
-
-        function getStatusCell(employee, date) {
-            const status = employee.filteredAttendance?.[date] || 'pending';
-            return isAuthenticated ? `
-                <select class="status-select status-${status}" 
-                        onchange="handleStatusChange('${employee.id}', '${date}', this.value)"
-                        data-employee-id="${employee.id}"
-                        data-date="${date}"
-                        style="border: none; padding: 5px;">
-                <option value="pending" ${status === 'pending' ? 'selected' : ''}>-</option>
-                <option value="present" ${status === 'present' ? 'selected' : ''}>Present</option>
-                <option value="absent" ${status === 'absent' ? 'selected' : ''}>Absent</option>
-                </select>
-            ` : `<span class="${status}-bg">${status.charAt(0).toUpperCase()}</span>`;
-        }
-
         function getMonthlyAbsences(employee) {
-            return Object.entries(employee.filteredAttendance || {}).reduce((count, [date, status]) => 
-                date.startsWith(selectedMonth) && status === 'absent' ? count + 1 : count, 0);
-        }
-
-        function updateMonthlySummary(employees) {
-            const totalAbsent = employees.reduce((sum, emp) => sum + getMonthlyAbsences(emp), 0);
-            document.getElementById('monthlySummary').innerHTML = `
-                <p>Total Employees: ${employees.length}</p>
-                <p>Monthly Absences: ${totalAbsent}</p>`;
-        }
-
-        // Authentication
-        async function verifyPassword() {
-            const email = document.getElementById('adminEmail').value;
-            const password = document.getElementById('adminPassword').value;
-          
-            try {
-              await firebase.auth().signInWithEmailAndPassword(email, password);
-              console.log("Login successful!");
-              closeModals();
-            } catch (error) {
-              console.error("Login error:", error);
-              alert(`Login failed: ${error.message}`);
-            }
-          }
-
-        async function logout() {
-            try {
-                await auth.signOut();
-            } catch (error) {
-                alert('Logout error: ' + error.message);
-            }
-        }
-
-        // Employee form handling
-        // Modified form handler
-    async function handleEmployeeForm(e) {
-        e.preventDefault();
-        
-        const employeeId = document.getElementById('employeeId').value;
-        const employeeData = {
-        name: document.getElementById('empName').value,
-        position: document.getElementById('empPosition').value
-        };
-    
-        try {
-        if (employeeId) {
-            // Update existing employee
-            await db.collection("employees").doc(employeeId).set(employeeData, { merge: true });
-
-            console.log('Employee updated successfully');
-        } else {
-            // Add new employee
-            await db.collection("employees").add({
-            ...employeeData,
-            attendance: {}
-            });
-            console.log('Employee added successfully');
+            const attendance = employee.attendance || {};
+            return Object.entries(attendance).reduce((count, [date, status]) => {
+                return date.startsWith(selectedMonth) && status === 'absent' ? count + 1 : count;
+            }, 0);
         }
         
-        closeModals();
-        renderTable(); // Refresh the table
-        } catch (error) {
-        console.error('Error saving employee:', error);
-        alert(`Save failed: ${error.message}`);
-        }
-    }
+        // Make functions globally accessible from inline event handlers
+        window.closeModal = closeModal;
 
-        // In your editEmployee function
-    async function editEmployee(employeeId) {
-        try {
-        // Fetch the employee document from Firestore
-        const docRef = db.collection("employees").doc(employeeId);
-        const docSnap = await docRef.get();
-    
-        if (docSnap.exists) {
-            const employee = docSnap.data();
-            
-            // Populate the form with existing data
-            document.getElementById('employeeId').value = employeeId;
-            document.getElementById('empName').value = employee.name;
-            document.getElementById('empPosition').value = employee.position;
-            
-            // Change form mode to editing
-            document.getElementById('modalTitle').textContent = 'Edit Employee';
-            document.getElementById('submitBtn').textContent = 'Update Employee';
-            document.getElementById('addEmployeeModal').style.display = 'block';
-        } else {
-            alert('Employee not found!');
-        }
-        } catch (error) {
-        console.error('Error getting employee:', error);
-        alert('Error loading employee data');
-        }
-    }
-
-        // UI helpers
-        function showAddEmployeeModal() {
-            if (!isAuthenticated) return showPasswordModal();
-            document.getElementById('employeeForm').reset();
-            document.getElementById('modalTitle').textContent = 'Add Employee';
-            document.getElementById('submitBtn').textContent = 'Add';
-            document.getElementById('addEmployeeModal').style.display = 'block';
-        }
-
-        function showPasswordModal() {
-            document.getElementById('passwordModal').style.display = 'block';
-        }
-
-        function closeModals() {
-            document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
-        }
-
-        function filterEmployees() {
-            const term = document.getElementById('searchInput').value.toLowerCase();
-            document.querySelectorAll('#attendanceTable tbody tr').forEach(row => {
-                const name = row.cells[0].textContent.toLowerCase();
-                const position = row.cells[1].textContent.toLowerCase();
-                row.style.display = name.includes(term) || position.includes(term) ? '' : 'none';
-            });
-        }
-
-        // Event listeners
-        document.getElementById('authButton').addEventListener('click', () => {
-            if (isAuthenticated) logout();
-        });
     </script>
 </body>
-
 </html>
