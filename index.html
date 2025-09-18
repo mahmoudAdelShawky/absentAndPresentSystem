@@ -13,9 +13,10 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f8fafc; /* A lighter gray */
+            background-color: #f8fafc;
         }
 
+        /* Animation for deleting rows */
         @keyframes slideOut {
             from { transform: translateX(0); opacity: 1; }
             to { transform: translateX(-100%); opacity: 0; }
@@ -25,6 +26,7 @@
             animation: slideOut 0.5s ease-in-out forwards;
         }
         
+        /* Simple loading spinner */
         .loading-spinner {
             width: 16px;
             height: 16px;
@@ -38,6 +40,7 @@
             to { transform: rotate(360deg); }
         }
 
+        /* Custom styling for the status select dropdown to hide default arrows */
         .status-select {
             -webkit-appearance: none;
             -moz-appearance: none;
@@ -48,18 +51,30 @@
             padding-right: 2rem;
             background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
         }
-        .status-select.status-present {
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='white' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-        }
-        .status-select.status-absent {
+        .status-present, .status-absent, .status-on-leave {
              background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='white' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+        }
+
+        /* Sticky header for the table on larger screens */
+        @media (min-width: 768px) {
+            thead th {
+                position: sticky;
+                top: 0;
+                z-index: 10;
+            }
+        }
+        
+        /* Responsive modal styling */
+        #modalContent {
+            max-height: 90vh;
+            overflow-y: auto;
         }
     </style>
 </head>
 <body class="bg-slate-50">
 
     <!-- Notification Bar -->
-    <div id="notification" class="hidden fixed top-5 right-5 p-4 text-white rounded-lg shadow-lg z-50 transition-all duration-300 transform translate-x-full">
+    <div id="notification" class="hidden fixed top-5 right-5 p-4 text-white rounded-lg shadow-lg z-50 transition-transform duration-300 translate-x-full">
         <p id="notificationMessage"></p>
     </div>
 
@@ -67,33 +82,38 @@
         <header class="flex flex-wrap justify-between items-center mb-8 gap-4">
             <h1 class="text-3xl md:text-4xl font-bold text-slate-800">Attendance Dashboard</h1>
             <div id="auth-controls" class="flex items-center gap-3">
-                 <span id="userIdDisplay" class="text-xs text-slate-500 mr-2"></span>
+                <span id="userIdDisplay" class="text-xs text-slate-500 mr-2"></span>
                 <button id="authButton" class="bg-sky-600 hover:bg-sky-700 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition-all">Admin Login</button>
                 <button id="addEmployeeBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition-all hidden">Add Employee</button>
             </div>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-             <div class="bg-white p-6 rounded-xl shadow-lg col-span-1 md:col-span-2">
-                <h2 class="text-lg font-semibold text-slate-700 mb-4">Monthly View</h2>
-                <div class="flex flex-wrap items-center gap-4">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+             <div class="bg-white p-6 rounded-xl shadow-lg col-span-1 lg:col-span-2">
+                <h2 class="text-lg font-semibold text-slate-700 mb-4">Controls</h2>
+                <div class="flex flex-col sm:flex-row items-center gap-4">
                     <input type="month" id="selectedMonth" class="p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto">
-                    <button onclick="handleMonthChange()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 px-4 rounded-lg shadow transition-all w-full sm:w-auto">Show</button>
                     <button id="exportBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow transition-all w-full sm:w-auto">Export to Excel</button>
                 </div>
             </div>
              <div id="monthlySummary" class="bg-white p-6 rounded-xl shadow-lg col-span-1"></div>
         </div>
 
-        <div class="bg-white p-6 rounded-xl shadow-lg">
+        <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg">
             <div class="mb-6">
-                 <input type="text" id="searchInput" placeholder="Search by name, position, or section..." onkeyup="filterEmployees()" class="w-full max-w-md p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" />
+                <input type="text" id="searchInput" placeholder="Search by name, position, or section..." class="w-full max-w-md p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" />
             </div>
 
-            <div class="overflow-x-auto">
-                <div id="attendanceTableContainer">
-                    <p class="p-8 text-center text-slate-500">Loading attendance data...</p>
-                </div>
+            <!-- This container will hold both the mobile and desktop views -->
+            <div id="attendance-container">
+                <!-- Loading state -->
+                <p id="loading-indicator" class="p-8 text-center text-slate-500">Loading attendance data...</p>
+
+                <!-- Mobile View: Card-based list (Visible on small screens) -->
+                <div id="attendanceCardsContainer" class="block md:hidden space-y-3"></div>
+
+                <!-- Desktop View: Full table (Visible on medium screens and up) -->
+                <div id="attendanceTableContainer" class="hidden md:block overflow-x-auto"></div>
             </div>
         </div>
     </div>
@@ -113,17 +133,15 @@
 
         // --- GLOBAL STATE & CONFIG ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'employee-attendance-dev';
-        const firebaseConfig = {
+        // Use provided Firebase config if available, otherwise fallback to a default
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "AIzaSyDYuU7BnNoWknT-kzdDmynrFAvq_sKv1ww",
             authDomain: "form-with-fire.firebaseapp.com",
-            databaseURL: "https://form-with-fire-default-rtdb.firebaseio.com",
             projectId: "form-with-fire",
-            storageBucket: "form-with-fire.firebasestorage.app",
+            storageBucket: "form-with-fire.appspot.com",
             messagingSenderId: "538712047570",
-            appId: "1:538712047570:web:489a07861e50f4e7f9d20b",
-            measurementId: "G-EVK4J3HKQX"
+            appId: "1:538712047570:web:489a07861e50f4e7f9d20b"
         };
-
 
         let app, auth, db;
         let employeesCollection;
@@ -135,6 +153,15 @@
         let selectedMonth = '';
         let currentUserId = null;
 
+        // --- UTILITY FUNCTIONS ---
+        const debounce = (func, delay) => {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), delay);
+            };
+        };
+        
         // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', () => {
             try {
@@ -142,23 +169,28 @@
                 auth = getAuth(app);
                 db = getFirestore(app);
                 employeesCollection = collection(db, `artifacts/${appId}/public/data/employees`);
+                
                 setupAuthListener();
                 initializeMonthSelector();
-                document.getElementById('exportBtn').addEventListener('click', exportToExcel);
+                setupEventListeners();
             } catch (error) {
                 console.error("Firebase initialization failed:", error);
                 showNotification("Application failed to load. Check console.", true);
             }
         });
 
+        function setupEventListeners() {
+            document.getElementById('exportBtn').addEventListener('click', exportToExcel);
+            document.getElementById('selectedMonth').addEventListener('change', handleMonthChange);
+            document.getElementById('searchInput').addEventListener('keyup', debounce(filterEmployees, 300));
+        }
+
         function setupAuthListener() {
             onAuthStateChanged(auth, async (user) => {
                 if (user) {
                     currentUserId = user.uid;
                     document.getElementById('userIdDisplay').textContent = `ID: ${user.uid.substring(0, 8)}...`;
-                    isAdmin = user.email ? true : false;
-                    updateUIForAuth();
-                    setupRealtimeListener();
+                    isAdmin = user.email ? true : false; // Simple check for admin
                 } else {
                     currentUserId = null;
                     isAdmin = false;
@@ -169,13 +201,14 @@
                         } else {
                             await signInAnonymously(auth);
                         }
+                        return; 
                     } catch (error) {
                         console.error("Sign-in failed:", error);
                         showNotification("Authentication failed.", true);
-                        updateUIForAuth();
-                        setupRealtimeListener();
                     }
                 }
+                updateUIForAuth();
+                setupRealtimeListener();
             });
         }
 
@@ -187,28 +220,57 @@
 
         // --- REALTIME DATA HANDLING ---
         function setupRealtimeListener() {
-            if (unsubscribe) unsubscribe();
+            if (unsubscribe) unsubscribe(); 
+            
+            const loadingIndicator = document.getElementById('loading-indicator');
+            loadingIndicator.style.display = 'block';
+
             unsubscribe = onSnapshot(employeesCollection, (snapshot) => {
+                const openModalEmployeeId = document.getElementById('modal')?.dataset.employeeId;
+
                 allEmployees = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                allEmployees.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+                allEmployees.sort((a, b) => a.name.localeCompare(b.name)); 
+                loadingIndicator.style.display = 'none';
                 filterEmployees();
+
+                // If a modal was open, refresh its content with the new data
+                if (openModalEmployeeId) {
+                    const updatedEmployee = allEmployees.find(e => e.id === openModalEmployeeId);
+                    if (updatedEmployee) {
+                        showEmployeeInfoModal(updatedEmployee.id);
+                    } else {
+                        closeModal(); // Close modal if employee was deleted
+                    }
+                }
+
             }, (error) => {
                 console.error("Error fetching employees:", error);
                 showNotification("Could not fetch employee data.", true);
+                loadingIndicator.textContent = 'Error loading data.';
             });
         }
 
-        // --- RENDERING ---
+        // --- CORE RENDERING LOGIC ---
+        function renderAttendanceData() {
+            renderTable();
+            renderCards();
+            updateMonthlySummary();
+        }
+
         function renderTable() {
             const dates = getDaysInMonth(selectedMonth);
             const tableContainer = document.getElementById('attendanceTableContainer');
+            const today = getTodayDateString();
 
-            if (filteredEmployees.length === 0) {
-                tableContainer.innerHTML = `<p class="p-8 text-center text-slate-500">No employees found for the current filter.</p>`;
-                updateMonthlySummary();
-                return;
+            if (filteredEmployees.length === 0 && allEmployees.length > 0) {
+                 tableContainer.innerHTML = `<p class="p-8 text-center text-slate-500">No employees found for the current filter.</p>`;
+                 return;
             }
-
+            if (allEmployees.length === 0) {
+                 tableContainer.innerHTML = `<p class="p-8 text-center text-slate-500">No employees have been added yet.</p>`;
+                 return;
+            }
+            
             const tableHTML = `
                 <table class="w-full text-sm text-left text-slate-500">
                     <thead class="text-xs text-slate-700 uppercase bg-slate-100">
@@ -217,19 +279,19 @@
                             <th scope="col" class="px-6 py-3">Name</th>
                             <th scope="col" class="px-6 py-3">Position</th>
                             <th scope="col" class="px-6 py-3">Section</th>
-                            ${dates.map(date => `<th scope="col" class="px-4 py-3 text-center">${formatDate(date)}</th>`).join('')}
+                            ${dates.map(date => `<th scope="col" class="px-4 py-3 text-center ${date === today ? 'bg-indigo-200' : ''}">${formatDateHeader(date)}</th>`).join('')}
                             <th scope="col" class="px-6 py-3 text-center">Total Absent</th>
                             ${isAdmin ? '<th scope="col" class="px-6 py-3 rounded-r-lg text-right">Actions</th>' : ''}
                         </tr>
                     </thead>
                     <tbody>
                         ${filteredEmployees.map((employee, index) => `
-                            <tr class="bg-white border-b hover:bg-slate-50 cursor-pointer" onclick="showEmployeeInfoModal('${employee.id}')" data-employee-id="${employee.id}">
+                            <tr class="bg-white border-b hover:bg-slate-50 cursor-pointer" data-employee-id="${employee.id}" onclick="showEmployeeInfoModal('${employee.id}')">
                                 <td class="px-6 py-4 font-medium text-slate-600">${index + 1}</td>
                                 <td class="px-6 py-4 font-medium text-slate-900 whitespace-nowrap">${employee.name}</td>
                                 <td class="px-6 py-4">${employee.position}</td>
                                 <td class="px-6 py-4">${employee.section || 'N/A'}</td>
-                                ${dates.map(date => `<td class="p-2 text-center">${getStatusCell(employee, date)}</td>`).join('')}
+                                ${dates.map(date => `<td class="p-2 text-center ${date === today ? 'bg-indigo-50' : ''}">${getStatusCell(employee, date)}</td>`).join('')}
                                 <td class="px-6 py-4 text-center font-bold text-red-600">${getMonthlyAbsences(employee)}</td>
                                 ${isAdmin ? `
                                     <td class="px-6 py-4 text-right">
@@ -248,33 +310,93 @@
                 </table>
             `;
             tableContainer.innerHTML = tableHTML;
-            updateMonthlySummary();
+        }
+
+        function renderCards() {
+            const cardsContainer = document.getElementById('attendanceCardsContainer');
+
+            if (filteredEmployees.length === 0 && allEmployees.length > 0) {
+                 cardsContainer.innerHTML = `<p class="p-8 text-center text-slate-500">No employees found for the current filter.</p>`;
+                 return;
+            }
+             if (allEmployees.length === 0) {
+                 cardsContainer.innerHTML = `<p class="p-8 text-center text-slate-500">No employees have been added yet.</p>`;
+                 return;
+            }
+
+            const cardsHTML = filteredEmployees.map(employee => {
+                const absentDays = getMonthlyAbsences(employee);
+                const presentDays = getMonthlyPresents(employee);
+                const leaveDays = getMonthlyLeaves(employee);
+
+                const monthlySummaryHtml = `
+                    <div class="mt-4 flex justify-end gap-4 text-sm">
+                        <span class="font-semibold text-green-600">Present: ${presentDays}</span>
+                        <span class="font-semibold text-yellow-600">Leave: ${leaveDays}</span>
+                        <span class="font-semibold text-red-600">Absent: ${absentDays}</span>
+                    </div>
+                `;
+
+                return `
+                <div id="card-${employee.id}" class="bg-white border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer" onclick="showEmployeeInfoModal('${employee.id}')">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="font-bold text-slate-800">${employee.name}</p>
+                            <p class="text-sm text-slate-500">${employee.position} - ${employee.section || 'N/A'}</p>
+                        </div>
+                        ${isAdmin ? `
+                        <div class="flex items-center -mt-2 -mr-2">
+                             <button onclick="event.stopPropagation(); showEditEmployeeModal('${employee.id}')" class="p-2 rounded-full text-slate-500 hover:bg-indigo-100 hover:text-indigo-600 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg>
+                            </button>
+                            <button onclick="event.stopPropagation(); showDeleteConfirmModal('${employee.id}', '${employee.name}')" class="p-2 rounded-full text-slate-500 hover:bg-red-100 hover:text-red-600 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                            </button>
+                        </div>
+                        ` : ''}
+                    </div>
+                    ${monthlySummaryHtml}
+                </div>
+                `;
+            }).join('');
+            cardsContainer.innerHTML = cardsHTML;
         }
 
         function getStatusCell(employee, date) {
             const status = (employee.attendance && employee.attendance[date]) || 'pending';
+            const statusColors = {
+                present: 'bg-green-500 text-white status-present',
+                absent: 'bg-red-500 text-white status-absent',
+                'on-leave': 'bg-yellow-500 text-white status-on-leave',
+                pending: 'bg-slate-200 text-slate-800'
+            };
+
             if (!isAdmin) {
                 const statusClasses = {
-                    present: 'bg-green-100 text-green-800', absent: 'bg-red-100 text-red-800', pending: 'bg-slate-100 text-slate-800'
+                    present: 'bg-green-100 text-green-800', 
+                    absent: 'bg-red-100 text-red-800', 
+                    'on-leave': 'bg-yellow-100 text-yellow-800',
+                    pending: 'bg-slate-100 text-slate-800'
                 };
-                return `<span class="inline-block mx-auto px-2 py-1 text-xs font-semibold rounded-full ${statusClasses[status]}">${status.charAt(0).toUpperCase()}</span>`;
+                 const statusInitial = { present: 'P', absent: 'A', 'on-leave': 'L', pending: '-' };
+                return `<span class="inline-block mx-auto px-2 py-1 text-xs font-semibold rounded-full ${statusClasses[status]}">${statusInitial[status]}</span>`;
             }
-            const statusColors = {
-                present: 'bg-green-500 text-white', absent: 'bg-red-500 text-white', pending: 'bg-slate-200 text-slate-800'
-            };
+            
             return `
                 <select class="status-select w-full p-1 border-0 rounded text-xs transition-colors ${statusColors[status]}" 
-                        onclick="event.stopPropagation()" onchange="handleStatusChange('${employee.id}', '${date}', this.value)">
+                        data-employee-id="${employee.id}" data-date="${date}"
+                        onchange="event.stopPropagation(); handleStatusChange('${employee.id}', '${date}', this)">
                     <option value="pending" ${status === 'pending' ? 'selected' : ''}>-</option>
                     <option value="present" ${status === 'present' ? 'selected' : ''}>P</option>
                     <option value="absent" ${status === 'absent' ? 'selected' : ''}>A</option>
+                    <option value="on-leave" ${status === 'on-leave' ? 'selected' : ''}>L</option>
                 </select>`;
         }
 
         function updateMonthlySummary() {
             const totalAbsent = filteredEmployees.reduce((sum, emp) => sum + getMonthlyAbsences(emp), 0);
             document.getElementById('monthlySummary').innerHTML = `
-                <h2 class="text-lg font-semibold text-slate-700 mb-4">Summary</h2>
+                <h2 class="text-lg font-semibold text-slate-700 mb-4">Summary (${new Date(selectedMonth + '-02').toLocaleString('default', { month: 'long' })})</h2>
                 <div class="flex justify-around text-center">
                     <div>
                         <p class="text-3xl font-bold text-slate-800">${filteredEmployees.length}</p>
@@ -294,13 +416,13 @@
             addEmployeeBtn.classList.toggle('hidden', !isAdmin);
             authButton.onclick = isAdmin ? handleLogout : showPasswordModal;
             addEmployeeBtn.onclick = showAddEmployeeModal;
-            renderTable();
+            renderAttendanceData();
         }
 
         // --- EVENT HANDLERS & ACTIONS ---
         window.handleMonthChange = () => {
             selectedMonth = document.getElementById('selectedMonth').value;
-            renderTable();
+            renderAttendanceData();
         }
 
         window.filterEmployees = () => {
@@ -310,12 +432,13 @@
                 emp.position.toLowerCase().includes(term) ||
                 (emp.section && emp.section.toLowerCase().includes(term))
             ) : [...allEmployees];
-            renderTable();
+            renderAttendanceData();
         }
 
-        window.handleStatusChange = async (employeeId, date, newStatus) => {
-            const selectElement = document.querySelector(`select[data-employee-id="${employeeId}"][data-date="${date}"]`);
-            if(selectElement) selectElement.disabled = true;
+        window.handleStatusChange = async (employeeId, date, selectElement) => {
+            const newStatus = selectElement.value;
+            selectElement.disabled = true;
+
             try {
                 const employeeRef = doc(employeesCollection, employeeId);
                 await updateDoc(employeeRef, { [`attendance.${date}`]: newStatus });
@@ -326,7 +449,7 @@
                 if(selectElement) selectElement.disabled = false;
             }
         }
-
+        
         window.handleEmployeeForm = async (event) => {
             event.preventDefault();
             const submitBtn = event.target.querySelector('button[type="submit"]');
@@ -342,13 +465,11 @@
 
             try {
                 if (!employeeId) {
-                    const q = query(employeesCollection, where("name", "==", employeeData.name));
-                    const querySnapshot = await getDocs(q);
-                    if (!querySnapshot.empty) {
+                    const normalizedNewName = employeeData.name.toLowerCase();
+                    const isDuplicate = allEmployees.some(emp => emp.name.toLowerCase() === normalizedNewName);
+                    if (isDuplicate) {
                         showNotification("An employee with this name already exists.", true);
-                        submitBtn.disabled = false;
-                        submitBtn.textContent = 'Add Employee';
-                        return;
+                        throw new Error("Duplicate employee name");
                     }
                 }
 
@@ -362,9 +483,11 @@
                 closeModal();
             } catch (error) {
                 console.error("Error saving employee:", error);
-                showNotification(`Error: ${error.message}`, true);
+                if (error.message !== "Duplicate employee name") {
+                   showNotification(`Error: ${error.message}`, true);
+                }
             } finally {
-                 if (submitBtn) {
+                if (submitBtn) {
                     submitBtn.disabled = false;
                     submitBtn.textContent = employeeId ? 'Update Employee' : 'Add Employee';
                 }
@@ -390,13 +513,15 @@
             }
         }
 
-
         async function deleteEmployee(employeeId) {
             try {
                 const row = document.querySelector(`tr[data-employee-id="${employeeId}"]`);
                 if (row) row.classList.add('deleting');
-                await deleteDoc(doc(employeesCollection, employeeId));
-                showNotification("Employee deleted.");
+                
+                setTimeout(async () => {
+                    await deleteDoc(doc(employeesCollection, employeeId));
+                    showNotification("Employee deleted.");
+                }, 500);
             } catch (error) {
                 console.error("Error deleting employee:", error);
                 showNotification(`Error: ${error.message}`, true);
@@ -405,8 +530,9 @@
         
         function exportToExcel() {
             const dates = getDaysInMonth(selectedMonth);
-            const headers = ["S.No.", "Name", "Position", "Section", ...dates.map(d => formatDate(d)), "Total Absent", "Notes"];
-            
+            const headers = ["S.No.", "Name", "Position", "Section", ...dates.map(d => formatDateHeader(d)), "Total Absent", "Notes"];
+            const statusMap = { present: 'P', absent: 'A', 'on-leave': 'L', pending: '-' };
+
             const data = filteredEmployees.map((emp, index) => {
                 const row = [
                     index + 1,
@@ -415,8 +541,8 @@
                     emp.section || '',
                 ];
                 dates.forEach(date => {
-                    const status = (emp.attendance && emp.attendance[date]) || '-';
-                    row.push(status.charAt(0).toUpperCase());
+                    const status = (emp.attendance && emp.attendance[date]) || 'pending';
+                    row.push(statusMap[status] || '-');
                 });
                 row.push(getMonthlyAbsences(emp));
                 row.push(emp.notes || '');
@@ -428,7 +554,7 @@
             XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance Report");
 
             const cols = headers.map((header, index) => ({
-                wch: Math.max(...data.map(row => row[index]?.toString().length || 0), header.length)
+                wch: Math.max(...data.map(row => row[index]?.toString().length || 0), header.length) + 2
             }));
             worksheet["!cols"] = cols;
 
@@ -450,10 +576,10 @@
                 showNotification("Admin login successful!");
             } catch (error) {
                 console.error("Admin login error:", error);
-                showNotification(error.code === 'auth/operation-not-allowed' ? "Email/Password sign-in is not enabled in Firebase." : error.message, true);
+                showNotification(error.code.replace('auth/', ' ').replace(/-/g, ' '), true);
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Submit';
+                submitBtn.textContent = 'Login';
             }
         }
 
@@ -468,14 +594,20 @@
         }
 
         // --- MODAL & NOTIFICATION UI ---
-        function showModal(contentHTML) {
+        function showModal(contentHTML, employeeId) {
+            const modal = document.getElementById('modal');
             document.getElementById('modalContent').innerHTML = contentHTML;
-            document.getElementById('modal').classList.remove('hidden');
+            modal.classList.remove('hidden');
+            if (employeeId) {
+                modal.dataset.employeeId = employeeId;
+            }
         }
 
         function closeModal() {
-            document.getElementById('modal').classList.add('hidden');
+            const modal = document.getElementById('modal');
+            modal.classList.add('hidden');
             document.getElementById('modalContent').innerHTML = '';
+            delete modal.dataset.employeeId;
         }
 
         function createEmployeeFormHTML(employee = {}) {
@@ -506,7 +638,7 @@
                     </form>
                 </div>`;
         }
-
+        
         window.showAddEmployeeModal = () => showModal(createEmployeeFormHTML());
         
         window.showEditEmployeeModal = (employeeId) => {
@@ -517,10 +649,38 @@
         window.showEmployeeInfoModal = (employeeId) => {
             const employee = allEmployees.find(e => e.id === employeeId);
             if (!employee) return;
-
-            const attendance = employee.attendance || {};
-            const presentDays = Object.keys(attendance).filter(date => date.startsWith(selectedMonth) && attendance[date] === 'present').length;
+            
+            const presentDays = getMonthlyPresents(employee);
             const absentDays = getMonthlyAbsences(employee);
+            const leaveDays = getMonthlyLeaves(employee);
+
+            const dailyStatusGrid = `
+                <div class="mt-6 border-t pt-6">
+                    <h3 class="text-lg font-semibold text-slate-700 mb-4">Daily Statuses</h3>
+                    <div class="grid grid-cols-7 gap-1 text-center">
+                        ${getDaysInMonth(selectedMonth).map(date => {
+                            const day = new Date(date + 'T00:00:00Z').getUTCDate();
+                            const status = employee.attendance?.[date] || 'pending';
+                            const statusClasses = {
+                                present: 'bg-green-500 text-white',
+                                absent: 'bg-red-500 text-white',
+                                'on-leave': 'bg-yellow-500 text-white',
+                                pending: 'bg-slate-200 text-slate-800'
+                            };
+                            const cursorClass = isAdmin ? 'cursor-pointer hover:opacity-80' : 'cursor-default';
+                            
+                            return `
+                                <div id="modal-day-${date}" 
+                                     class="aspect-square flex items-center justify-center rounded-md font-bold transition-opacity ${statusClasses[status]} ${cursorClass}"
+                                     ${isAdmin ? `onclick="handleModalStatusChange('${employee.id}', '${date}')"` : ''}>
+                                    ${day}
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    ${isAdmin ? `<p class="text-xs text-slate-500 mt-2">Click on a day to cycle through statuses (Present, Absent, On Leave).</p>` : ''}
+                </div>
+            `;
 
             const infoHTML = `
                 <div class="p-6">
@@ -529,21 +689,26 @@
                             <h2 class="text-xl font-bold text-slate-800">${employee.name}</h2>
                             <p class="text-sm text-slate-500">${employee.position} - ${employee.section || 'N/A'}</p>
                         </div>
-                        <button onclick="closeModal()" class="p-2 rounded-full hover:bg-slate-200">&times;</button>
+                        <button onclick="closeModal()" class="p-2 -mt-2 -mr-2 rounded-full hover:bg-slate-200 text-2xl leading-none">&times;</button>
                     </div>
                     <div class="mt-6 border-t pt-6">
-                        <h3 class="text-lg font-semibold text-slate-700 mb-4">Attendance for ${new Date(selectedMonth + '-02').toLocaleString('default', { month: 'long', year: 'numeric' })}</h3>
-                        <div class="grid grid-cols-2 gap-4 text-center">
+                        <h3 class="text-lg font-semibold text-slate-700 mb-4">Monthly Summary</h3>
+                        <div class="grid grid-cols-3 gap-4 text-center">
                             <div class="bg-green-100 p-4 rounded-lg">
-                                <p class="text-3xl font-bold text-green-700">${presentDays}</p>
-                                <p class="text-sm text-green-600">Present Days</p>
+                                <p id="modal-present-count" class="text-3xl font-bold text-green-700">${presentDays}</p>
+                                <p class="text-sm text-green-600">Present</p>
+                            </div>
+                             <div class="bg-yellow-100 p-4 rounded-lg">
+                                <p id="modal-leave-count" class="text-3xl font-bold text-yellow-700">${leaveDays}</p>
+                                <p class="text-sm text-yellow-600">On Leave</p>
                             </div>
                              <div class="bg-red-100 p-4 rounded-lg">
-                                <p class="text-3xl font-bold text-red-700">${absentDays}</p>
-                                <p class="text-sm text-red-600">Absent Days</p>
+                                <p id="modal-absent-count" class="text-3xl font-bold text-red-700">${absentDays}</p>
+                                <p class="text-sm text-red-600">Absent</p>
                             </div>
                         </div>
                     </div>
+                    ${dailyStatusGrid}
                     <div class="mt-6 border-t pt-6">
                         <h3 class="text-lg font-semibold text-slate-700 mb-2">Notes</h3>
                         <textarea id="employeeNoteTextarea" rows="3" class="w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500" ${!isAdmin ? 'readonly' : ''}>${employee.notes || ''}</textarea>
@@ -551,13 +716,69 @@
                     </div>
                 </div>
             `;
-            showModal(infoHTML);
+            showModal(infoHTML, employeeId);
         }
+
+        window.handleModalStatusChange = (employeeId, date) => {
+            const dayElement = document.getElementById(`modal-day-${date}`);
+            if (!dayElement || dayElement.dataset.disabled === 'true') return;
+
+            const employee = allEmployees.find(e => e.id === employeeId);
+            const currentStatus = employee?.attendance?.[date] || 'pending';
+            
+            const statusCycle = ['pending', 'present', 'absent', 'on-leave'];
+            const currentIndex = statusCycle.indexOf(currentStatus);
+            const nextStatus = statusCycle[(currentIndex + 1) % statusCycle.length];
+            
+            // --- Optimistic UI Update ---
+            dayElement.dataset.disabled = 'true';
+            
+            const statusClasses = {
+                present: 'bg-green-500 text-white',
+                absent: 'bg-red-500 text-white',
+                'on-leave': 'bg-yellow-500 text-white',
+                pending: 'bg-slate-200 text-slate-800'
+            };
+            dayElement.className = `aspect-square flex items-center justify-center rounded-md font-bold transition-opacity ${statusClasses[nextStatus]} cursor-pointer hover:opacity-80`;
+
+            const presentCountEl = document.getElementById('modal-present-count');
+            const absentCountEl = document.getElementById('modal-absent-count');
+            const leaveCountEl = document.getElementById('modal-leave-count');
+
+            let presentCount = parseInt(presentCountEl.textContent);
+            let absentCount = parseInt(absentCountEl.textContent);
+            let leaveCount = parseInt(leaveCountEl.textContent);
+
+            if (currentStatus === 'present') presentCount--;
+            else if (currentStatus === 'absent') absentCount--;
+            else if (currentStatus === 'on-leave') leaveCount--;
+
+            if (nextStatus === 'present') presentCount++;
+            else if (nextStatus === 'absent') absentCount++;
+            else if (nextStatus === 'on-leave') leaveCount++;
+
+            presentCountEl.textContent = presentCount;
+            absentCountEl.textContent = absentCount;
+            leaveCountEl.textContent = leaveCount;
+            // --- End of Optimistic Update ---
+
+            const employeeRef = doc(employeesCollection, employeeId);
+            updateDoc(employeeRef, { [`attendance.${date}`]: nextStatus })
+                .catch((error) => {
+                    console.error("Error updating modal status:", error);
+                    showNotification("Failed to update status.", true);
+                    // Revert UI on error
+                    showEmployeeInfoModal(employeeId); 
+                })
+                .finally(() => {
+                    if(dayElement) dayElement.dataset.disabled = 'false';
+                });
+        };
 
         window.showPasswordModal = () => {
             const formHTML = `
                 <div class="p-6">
-                    <h2 class="text-xl font-bold text-slate-800 mb-6">Admin Access</h2>
+                    <h2 class="text-xl font-bold text-slate-800 mb-6">Admin Login</h2>
                     <form onsubmit="handleAdminLogin(event)">
                         <div class="space-y-4">
                             <div>
@@ -571,7 +792,7 @@
                         </div>
                         <div class="mt-8 flex justify-end gap-4">
                             <button type="button" onclick="closeModal()" class="py-2 px-4 bg-slate-200 text-slate-800 rounded-lg hover:bg-slate-300 transition-colors">Cancel</button>
-                            <button type="submit" class="py-2 px-4 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors">Submit</button>
+                            <button type="submit" class="py-2 px-4 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors">Login</button>
                         </div>
                     </form>
                 </div>`;
@@ -594,22 +815,28 @@
                 deleteEmployee(employeeId);
             };
         }
-
+        
         function showNotification(message, isError = false) {
             const notification = document.getElementById('notification');
             const messageP = document.getElementById('notificationMessage');
             messageP.textContent = message;
             notification.className = `fixed top-5 right-5 p-4 text-white rounded-lg shadow-lg z-50 transition-all duration-300 transform ${isError ? 'bg-red-500' : 'bg-green-500'}`;
-            notification.classList.remove('hidden');
-            setTimeout(() => notification.style.transform = 'translateX(0)', 10);
+            notification.classList.remove('hidden', 'translate-x-full');
             setTimeout(() => {
-                notification.style.transform = 'translateX(calc(100% + 1.25rem))';
+                notification.classList.add('translate-x-full');
                 setTimeout(() => notification.classList.add('hidden'), 300);
             }, 3000);
         }
 
         // --- UTILITY FUNCTIONS ---
-        function getDaysInMonth(month) {
+        function getTodayDateString() {
+            const today = new Date();
+            const offset = today.getTimezoneOffset();
+            const todayLocal = new Date(today.getTime() - (offset*60*1000));
+            return todayLocal.toISOString().split('T')[0];
+        }
+
+        function getDaysInMonth(month) { // YYYY-MM
             const [year, monthIndex] = month.split('-').map(Number);
             const date = new Date(Date.UTC(year, monthIndex - 1, 1));
             const days = [];
@@ -620,18 +847,34 @@
             return days;
         }
 
-        function formatDate(dateString) {
+        function formatDateHeader(dateString) {
             const date = new Date(dateString + 'T00:00:00Z');
-            return date.toLocaleDateString('en-US', { day: 'numeric', weekday: 'short', timeZone: 'UTC' });
+            const day = date.toLocaleDateString('en-US', { day: 'numeric', timeZone: 'UTC' });
+            const weekday = date.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+            return `${day} ${weekday}`;
         }
 
         function getMonthlyAbsences(employee) {
             return Object.entries(employee.attendance || {}).reduce((count, [date, status]) => 
                 date.startsWith(selectedMonth) && status === 'absent' ? count + 1 : count, 0);
         }
+
+        function getMonthlyPresents(employee) {
+            return Object.entries(employee.attendance || {}).reduce((count, [date, status]) => 
+                date.startsWith(selectedMonth) && status === 'present' ? count + 1 : count, 0);
+        }
+
+        function getMonthlyLeaves(employee) {
+            return Object.entries(employee.attendance || {}).reduce((count, [date, status]) => 
+                date.startsWith(selectedMonth) && status === 'on-leave' ? count + 1 : count, 0);
+        }
         
+        // Make essential functions globally accessible
         window.closeModal = closeModal;
         window.handleSaveNote = handleSaveNote;
+        window.handleModalStatusChange = handleModalStatusChange;
+
     </script>
 </body>
 </html>
+
