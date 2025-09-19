@@ -342,7 +342,8 @@
                 const statusInitial = { present: 'P', absent: 'A', 'on-leave': 'L', pending: '-' };
                 return `<span class="inline-block mx-auto px-2 py-1 text-xs font-semibold rounded-full ${statusClasses[status]}">${statusInitial[status]}</span>`;
             }
-            return `<select class="status-select w-full p-1 border-0 rounded text-xs transition-colors ${statusColors[status]}" data-employee-id="${employee.id}" data-date="${date}" onchange="event.stopPropagation(); handleStatusChange('${employee.id}', '${date}', this)"><option value="pending" ${status === 'pending' ? 'selected' : ''}>-</option><option value="present" ${status === 'present' ? 'selected' : ''}>P</option><option value="absent" ${status === 'absent' ? 'selected' : ''}>A</option><option value="on-leave" ${status === 'on-leave' ? 'selected' : ''}>L</option></select>`;
+            // FIX: Added onclick="event.stopPropagation()" to the select element to prevent the row's click event from firing.
+            return `<select class="status-select w-full p-1 border-0 rounded text-xs transition-colors ${statusColors[status]}" data-employee-id="${employee.id}" data-date="${date}" onclick="event.stopPropagation();" onchange="handleStatusChange('${employee.id}', '${date}', this)"><option value="pending" ${status === 'pending' ? 'selected' : ''}>-</option><option value="present" ${status === 'present' ? 'selected' : ''}>P</option><option value="absent" ${status === 'absent' ? 'selected' : ''}>A</option><option value="on-leave" ${status === 'on-leave' ? 'selected' : ''}>L</option></select>`;
         }
 
         function updateMonthlySummary() {
@@ -586,6 +587,7 @@
                     <div>
                         <h3 class="font-semibold text-slate-700">Format 2: Exported Sheet (Wide Format)</h3>
                          <p class="text-sm text-slate-600 mb-2">This is the format you get from the "Export" button. You can export, edit, and re-import the sheet to update a full month's data at once.</p>
+                         <p class="text-sm text-yellow-700 bg-yellow-100 p-2 rounded-md"><strong>Important:</strong> When importing this format, make sure the month selector is set to the correct month for the file you are uploading.</p>
                     </div>
 
                     <div id="import-feedback" class="text-sm mt-4"></div>
@@ -598,26 +600,47 @@
         }
 
         async function handleFileUpload(event) {
-            const file = event.target.files[0];
+            const fileInput = event.target;
+            const file = fileInput.files[0];
             if (!file) return;
 
             const feedbackEl = document.getElementById('import-feedback');
             feedbackEl.innerHTML = `<div class="flex items-center gap-2 text-slate-700"><div class="loading-spinner w-4 h-4 loading-spinner-dark"></div><span>Processing file...</span></div>`;
 
-            try {
-                const data = await file.arrayBuffer();
-                const workbook = XLSX.read(data);
-                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            const reader = new FileReader();
 
-                await processImportedData(jsonData);
-            } catch (error) {
-                console.error("File import error:", error);
-                showNotification(error.message, true);
-                feedbackEl.textContent = `Error: ${error.message}`;
-            } finally {
-                event.target.value = ''; // Reset file input
-            }
+            const resetInput = () => {
+                if (fileInput) fileInput.value = '';
+            };
+
+            reader.onload = async (e) => {
+                try {
+                    const data = e.target.result;
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    await processImportedData(jsonData);
+                } catch (error) {
+                    console.error("File processing error:", error);
+                    showNotification(error.message, true);
+                    if (feedbackEl) {
+                        feedbackEl.textContent = `Error: ${error.message}`;
+                    }
+                } finally {
+                    resetInput();
+                }
+            };
+
+            reader.onerror = (e) => {
+                console.error("FileReader error:", e);
+                showNotification("Could not read the file. Please try again.", true);
+                if (feedbackEl) {
+                    feedbackEl.textContent = "Error: File could not be read.";
+                }
+                resetInput();
+            };
+            
+            reader.readAsArrayBuffer(file);
         }
 
         async function processImportedData(data) {
@@ -820,4 +843,3 @@
     </script>
 </body>
 </html>
-
